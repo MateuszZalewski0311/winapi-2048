@@ -4,6 +4,7 @@
 #include "pch.h"
 #include "framework.h"
 #include "WinApi_Lab1.h"
+#include <time.h>
 
 #define MAX_LOADSTRING 100
 
@@ -19,17 +20,24 @@ HWND g_hWnd_Clone;
 HWND g_hWnd_ScoreBar_Clone;
 HWND g_hWnd_Boxes[16];
 HWND g_hWnd_Boxes_Clone[16];
+BOOL status;
+static int tiles[16];
 
 HBRUSH hbrBackground, hbrBox;
 HBRUSH hbrTile2, hbrTile4, hbrTile8, hbrTile16;
 HBRUSH hbrTile32, hbrTile64, hbrTile128, hbrTile256;
 HBRUSH hbrTile512, hbrTile1024, hbrTile2048;
+HPEN pen;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 ATOM                MyRegisterClassBox(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
+void                ClearBoard();
+bool                CheckBoard();
+void                Spawn2();
+void                PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[]);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -39,6 +47,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
+    srand(time(0));
     // Creating brushes
     hbrBackground = CreateSolidBrush(RGB(250, 247, 238));
     hbrBox        = CreateSolidBrush(RGB(204, 192, 174));
@@ -54,6 +63,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     hbrTile512    = CreateSolidBrush(RGB(243, 201, 85));
     hbrTile1024   = CreateSolidBrush(RGB(238, 200, 72));
     hbrTile2048   = CreateSolidBrush(RGB(239, 192, 47));
+    pen           = CreatePen(PS_SOLID, 2, RGB(250, 247, 238));
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -175,6 +185,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        }
    }
 
+   ClearBoard();
+
    if (!hWnd)
    {
       return FALSE;
@@ -219,17 +231,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
-    //case WM_COMMAND:
-    //    {
-    //        int wmId = LOWORD(wParam);
-    //        // Parse the menu selections:
-    //        switch (wmId)
-    //        {
-    //        default:
-    //            return DefWindowProc(hWnd, message, wParam, lParam);
-    //        }
-    //    }
-    //    break;
+    case WM_COMMAND:
+        {
+            int wmId = LOWORD(wParam);
+            // Parse the menu selections:
+            switch (wmId)
+            {
+            case ID_GAME_NEWGAME:
+                {
+                    //ClearBoard();
+                    Spawn2();
+                }
+                break;
+            default:
+                return DefWindowProc(hWnd, message, wParam, lParam);
+            }
+        }
+        break;
     case WM_GETMINMAXINFO:
     {
         SetRect(&rcSize, 0, 0, 290, 360);
@@ -294,10 +312,100 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         DeleteObject(hbrTile512);
         DeleteObject(hbrTile1024);
         DeleteObject(hbrTile2048);
+        DeleteObject(pen);
         PostQuitMessage(0);
         break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
+}
+
+void ClearBoard()
+{
+    for (int i = 0; i < 16; ++i)
+        tiles[i] = 0;
+}
+
+//true - no move possible, false - can move
+bool CheckBoard()
+{
+    if (status == TRUE)
+        return true;
+    for (int i = 0; i < 16; ++i)
+    {
+        if (tiles[i] == 0)
+            return false; // empty boxes
+        //check above
+        if (i - 4 >= 0 && tiles[i - 4] == tiles[i]) return false;
+        //check left
+        else if (i - 1 % 4 != 3 && i - 1 >= 0 && tiles[i - 1] == tiles[i]) return false;
+        //check below
+        //else if (i + 4 < 16 && tiles[i + 4] == 0 || tiles[i + 4] == tiles[i]) return false;
+        //check right
+        //else if (i + 1 % 4 != 0 && i + 1 >= 0 && tiles[i + 1] == 0 || tiles[i + 1] == tiles[i]) return false;
+    }
+    return true;
+}
+
+//void Move()
+//{
+//    if (status == TRUE)
+//        return;
+//}
+
+void Spawn2()
+{
+    if (CheckBoard()) //placeholder
+        return;
+    int i, choice = rand() % 16;
+    for (i = 0; tiles[choice] != 0 && i < 1000; ++i)
+        choice = rand() % 16;
+    if (i == 1000)
+        return;
+    tiles[choice] = 2;
+
+    PaintBox(g_hWnd_Boxes[choice], hbrTile2, L"2");
+    PaintBox(g_hWnd_Boxes_Clone[choice], hbrTile2, L"2");
+    if (CheckBoard()) //placeholder
+        return;
+}
+
+void PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[])
+{
+    RECT rc;
+    GetClientRect(hWnd, &rc);
+    MapWindowPoints(hWnd, GetParent(hWnd), (LPPOINT)&rc, 2);
+
+    HDC hdc = GetDC(GetParent(hWnd));
+    HFONT font = CreateFont(
+        -MulDiv(16, GetDeviceCaps(hdc, LOGPIXELSY), 72), // Height
+        0, // Width
+        0, // Escapement
+        0, // Orientation
+        FW_BOLD, // Weight
+        false, // Italic
+        FALSE, // Underline
+        0, // StrikeOut
+        EASTEUROPE_CHARSET, // CharSet
+        OUT_DEFAULT_PRECIS, // OutPrecision
+        CLIP_DEFAULT_PRECIS, // ClipPrecision
+        DEFAULT_QUALITY, // Quality
+        DEFAULT_PITCH | FF_SWISS, // PitchAndFamily
+        L" Verdana "); // Facename
+    HFONT oldFont = (HFONT)SelectObject(hdc, font);
+
+    HBRUSH hbrOld = (HBRUSH)SelectObject(hdc, hbrTile2);
+    FillRect(hdc, &rc, hbrBackground);
+    HPEN oldPen = (HPEN)SelectObject(hdc, pen);
+    RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, 15, 15);
+    SetTextColor(hdc, RGB(255, 255, 255));
+    SetBkMode(hdc, TRANSPARENT);
+    DrawTextW(hdc, s, (int)wcslen(s), &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    SelectObject(hdc, hbrOld);
+    SelectObject(hdc, oldPen);
+    SelectObject(hdc, oldFont);
+    DeleteObject(font);
+
+    ReleaseDC(g_hWnd, hdc);
 }
