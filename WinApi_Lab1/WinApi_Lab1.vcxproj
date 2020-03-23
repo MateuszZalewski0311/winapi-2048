@@ -166,6 +166,7 @@
     <ResourceCompile Include="WinApi_Lab1.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="2048_icon.ico" />
     <Image Include="C:\Users\Mat\Desktop\task\WinAPIPL\Lab\2048_icon.ico" />
     <Image Include="small.ico" />
     <Image Include="WinApi_Lab1.ico" />

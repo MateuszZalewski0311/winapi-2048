@@ -54,5 +54,8 @@
     <Image Include="C:\Users\Mat\Desktop\task\WinAPIPL\Lab\2048_icon.ico">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="2048_icon.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

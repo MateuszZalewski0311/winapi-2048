@@ -14,11 +14,16 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 WCHAR szBoxClass[MAX_LOADSTRING];               // the box window class name
 RECT rcSize;
 HWND g_hWnd;
+HWND g_hWnd_ScoreBar;
 HWND g_hWnd_Clone;
+HWND g_hWnd_ScoreBar_Clone;
 HWND g_hWnd_Boxes[16];
 HWND g_hWnd_Boxes_Clone[16];
 
 HBRUSH hbrBackground, hbrBox;
+HBRUSH hbrTile2, hbrTile4, hbrTile8, hbrTile16;
+HBRUSH hbrTile32, hbrTile64, hbrTile128, hbrTile256;
+HBRUSH hbrTile512, hbrTile1024, hbrTile2048;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -34,9 +39,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    // TODO: Place code here.
+    // Creating brushes
     hbrBackground = CreateSolidBrush(RGB(250, 247, 238));
-    hbrBox = CreateSolidBrush(RGB(204, 192, 174));
+    hbrBox        = CreateSolidBrush(RGB(204, 192, 174));
+    // ---
+    hbrTile2      = CreateSolidBrush(RGB(238, 228, 198));
+    hbrTile4      = CreateSolidBrush(RGB(239, 225, 218));
+    hbrTile8      = CreateSolidBrush(RGB(243, 179, 124));
+    hbrTile16     = CreateSolidBrush(RGB(246, 153, 100));
+    hbrTile32     = CreateSolidBrush(RGB(246, 125, 98));
+    hbrTile64     = CreateSolidBrush(RGB(247, 93, 60));
+    hbrTile128    = CreateSolidBrush(RGB(237, 206, 116));
+    hbrTile256    = CreateSolidBrush(RGB(239, 204, 98));
+    hbrTile512    = CreateSolidBrush(RGB(243, 201, 85));
+    hbrTile1024   = CreateSolidBrush(RGB(238, 200, 72));
+    hbrTile2048   = CreateSolidBrush(RGB(239, 192, 47));
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -96,6 +113,11 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassExW(&wcex);
 }
 
+//
+//  FUNCTION: MyRegisterClassBox()
+//
+//  PURPOSE: Registers the box class.
+//
 ATOM MyRegisterClassBox(HINSTANCE hInstance)
 {
     WNDCLASSEXW wcex;
@@ -120,12 +142,12 @@ ATOM MyRegisterClassBox(HINSTANCE hInstance)
 //
 //   FUNCTION: InitInstance(HINSTANCE, int)
 //
-//   PURPOSE: Saves instance handle and creates main window
+//   PURPOSE: Saves instance handle and creates windows
 //
 //   COMMENTS:
 //
 //        In this function, we save the instance handle in a global variable and
-//        create and display the main program window.
+//        create and display the program windows.
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
@@ -138,15 +160,18 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
    SetLayeredWindowAttributes(hWnd_Clone, 0, (255 * 100) / 100, LWA_ALPHA);
 
+   HWND hWnd_ScoreBar = g_hWnd_ScoreBar = CreateWindowExW(0, szBoxClass, L"ScoreBar", WS_CHILD | WS_VISIBLE, 10, 10, 270, 60, hWnd, nullptr, hInstance, nullptr);
+   HWND hWnd_ScoreBar_Clone = g_hWnd_ScoreBar_Clone = CreateWindowExW(0, szBoxClass, L"ScoreBar", WS_CHILD | WS_VISIBLE, 10, 10, 270, 60, hWnd_Clone, nullptr, hInstance, nullptr);
+
    for (int i = 0; i < 4; ++i) {
            for (int j = 0; j < 4; ++j) {
-               g_hWnd_Boxes[i+j*4] = CreateWindowExW(0, szBoxClass, L"Box", WS_CHILD | WS_VISIBLE, 10 + i * 70, 10 + j * 70, 60, 60, hWnd, nullptr, hInstance, nullptr);
+               g_hWnd_Boxes[i+j*4] = CreateWindowExW(0, szBoxClass, L"Box", WS_CHILD | WS_VISIBLE, 10 + i * 70, 80 + j * 70, 60, 60, hWnd, nullptr, hInstance, nullptr);
            }
        }
 
    for (int i = 0; i < 4; ++i) {
        for (int j = 0; j < 4; ++j) {
-           g_hWnd_Boxes_Clone[i + j * 4] = CreateWindowExW(0, szBoxClass, L"Box", WS_CHILD | WS_VISIBLE, 10 + i * 70, 10 + j * 70, 60, 60, hWnd_Clone, nullptr, hInstance, nullptr);
+           g_hWnd_Boxes_Clone[i + j * 4] = CreateWindowExW(0, szBoxClass, L"Box", WS_CHILD | WS_VISIBLE, 10 + i * 70, 80 + j * 70, 60, 60, hWnd_Clone, nullptr, hInstance, nullptr);
        }
    }
 
@@ -157,13 +182,18 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
+   ShowWindow(hWnd_ScoreBar, nCmdShow);
+   UpdateWindow(hWnd_ScoreBar);
    for (int i = 0; i < 16; ++i)
    {
        ShowWindow(g_hWnd_Boxes[i], nCmdShow);
        UpdateWindow(g_hWnd_Boxes[i]);
    }
+
    ShowWindow(hWnd_Clone, nCmdShow);
    UpdateWindow(hWnd_Clone);
+   ShowWindow(hWnd_ScoreBar_Clone, nCmdShow);
+   UpdateWindow(hWnd_ScoreBar_Clone);
    for (int i = 0; i < 16; ++i)
    {
        ShowWindow(g_hWnd_Boxes_Clone[i], nCmdShow);
@@ -178,9 +208,11 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 //  PURPOSE: Processes messages for the main window.
 //
-//  WM_COMMAND  - process the application menu
-//  WM_PAINT    - Paint the main window
-//  WM_DESTROY  - post a quit message and return
+//  WM_COMMAND       - process the application menu
+//  WM_GETMINMAXINFO - set the size of the window
+//  WM_PAINT         - Paint the main window
+//  WM_MOVE          - synchronize position of windows relative to screen center
+//  WM_DESTROY       - delete brushes, post a quit message and return
 //
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -200,8 +232,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     //    break;
     case WM_GETMINMAXINFO:
     {
-        SetRect(&rcSize, 0, 0, 290, 290);
-        AdjustWindowRect(&rcSize, WS_OVERLAPPED | WS_MINIMIZEBOX | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_VISIBLE, FALSE);
+        SetRect(&rcSize, 0, 0, 290, 360);
+        AdjustWindowRect(&rcSize, WS_OVERLAPPED | WS_MINIMIZEBOX | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_VISIBLE, TRUE);
         MINMAXINFO* minMaxInfo = (MINMAXINFO*)lParam;
         minMaxInfo->ptMaxSize.x = minMaxInfo->ptMaxTrackSize.x = rcSize.right - rcSize.left;
         minMaxInfo->ptMaxSize.y = minMaxInfo->ptMaxTrackSize.y = rcSize.bottom - rcSize.top;
@@ -251,6 +283,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         DeleteObject(hbrBackground);
         DeleteObject(hbrBox);
+        DeleteObject(hbrTile2);
+        DeleteObject(hbrTile4);
+        DeleteObject(hbrTile8);
+        DeleteObject(hbrTile16);
+        DeleteObject(hbrTile32);
+        DeleteObject(hbrTile64);
+        DeleteObject(hbrTile128);
+        DeleteObject(hbrTile256);
+        DeleteObject(hbrTile512);
+        DeleteObject(hbrTile1024);
+        DeleteObject(hbrTile2048);
         PostQuitMessage(0);
         break;
     default:
