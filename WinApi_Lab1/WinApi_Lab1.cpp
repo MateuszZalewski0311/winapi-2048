@@ -22,6 +22,7 @@ HWND g_hWnd_Boxes[16];
 HWND g_hWnd_Boxes_Clone[16];
 BOOL status;
 static int tiles[16];
+static int score;
 
 HBRUSH hbrBackground, hbrBox;
 HBRUSH hbrTile2, hbrTile4, hbrTile8, hbrTile16;
@@ -36,8 +37,14 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 void                ClearBoard();
 bool                CheckBoard();
+bool                TileArrAlign(int*);
+bool                MoveLeft();
+bool                MoveRight();
+bool                MoveUp();
+bool                MoveDown();
 void                Spawn2();
 void                PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[]);
+void                RepaintBoard();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -47,7 +54,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    srand(time(0));
+    srand((unsigned int)time(0));
     // Creating brushes
     hbrBackground = CreateSolidBrush(RGB(250, 247, 238));
     hbrBox        = CreateSolidBrush(RGB(204, 192, 174));
@@ -185,7 +192,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        }
    }
 
-   ClearBoard();
+   //ClearBoard();
+   //score = 0;
 
    if (!hWnd)
    {
@@ -239,81 +247,164 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
             case ID_GAME_NEWGAME:
                 {
-                    //ClearBoard();
+                    score = 0;
+                    ClearBoard();
                     Spawn2();
                 }
                 break;
             default:
-                return DefWindowProc(hWnd, message, wParam, lParam);
+                return DefWindowProcW(hWnd, message, wParam, lParam);
             }
         }
         break;
     case WM_GETMINMAXINFO:
-    {
-        SetRect(&rcSize, 0, 0, 290, 360);
-        AdjustWindowRect(&rcSize, WS_OVERLAPPED | WS_MINIMIZEBOX | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_VISIBLE, TRUE);
-        MINMAXINFO* minMaxInfo = (MINMAXINFO*)lParam;
-        minMaxInfo->ptMaxSize.x = minMaxInfo->ptMaxTrackSize.x = rcSize.right - rcSize.left;
-        minMaxInfo->ptMaxSize.y = minMaxInfo->ptMaxTrackSize.y = rcSize.bottom - rcSize.top;
-        minMaxInfo->ptMinTrackSize.x = rcSize.right - rcSize.left;
-        minMaxInfo->ptMinTrackSize.y = rcSize.bottom - rcSize.top;
-    }
-    break;
+        {
+            SetRect(&rcSize, 0, 0, 290, 360);
+            AdjustWindowRect(&rcSize, WS_OVERLAPPED | WS_MINIMIZEBOX | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_VISIBLE, TRUE);
+            MINMAXINFO* minMaxInfo = (MINMAXINFO*)lParam;
+            minMaxInfo->ptMaxSize.x = minMaxInfo->ptMaxTrackSize.x = rcSize.right - rcSize.left;
+            minMaxInfo->ptMaxSize.y = minMaxInfo->ptMaxTrackSize.y = rcSize.bottom - rcSize.top;
+            minMaxInfo->ptMinTrackSize.x = rcSize.right - rcSize.left;
+            minMaxInfo->ptMinTrackSize.y = rcSize.bottom - rcSize.top;
+        }
+        break;
     case WM_PAINT:
         {
+            WCHAR scoreSTR[64] = L"";
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Add any drawing code that uses hdc here...
+            for (int i = 0; i < 16; ++i)
+            {
+                switch (tiles[i])
+                {
+                case 2:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile2, L"2");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile2, L"2");
+                    break;
+                case 4:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile4, L"4");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile4, L"4");
+                    break;
+                case 8:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile8, L"8");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile8, L"8");
+                    break;
+                case 16:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile16, L"16");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile16, L"16");
+                    break;
+                case 32:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile32, L"32");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile32, L"32");
+                    break;
+                case 64:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile64, L"64");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile64, L"64");
+                    break;
+                case 128:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile128, L"128");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile128, L"128");
+                    break;
+                case 256:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile256, L"256");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile256, L"256");
+                    break;
+                case 512:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile512, L"512");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile512, L"512");
+                    break;
+                case 1024:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile1024, L"1024");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile1024, L"1024");
+                    break;
+                case 2048:
+                    PaintBox(g_hWnd_Boxes[i], hbrTile2048, L"2048");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile2048, L"2048");
+                    break;
+                default:
+                    PaintBox(g_hWnd_Boxes[i], hbrBox, L"");
+                    PaintBox(g_hWnd_Boxes_Clone[i], hbrBox, L"");
+                    break;
+                }
+                wsprintfW(scoreSTR, L"%d", score);
+                PaintBox(g_hWnd_ScoreBar, hbrBox, scoreSTR);
+                PaintBox(g_hWnd_ScoreBar_Clone, hbrBox, scoreSTR);
+            }
             EndPaint(hWnd, &ps);
         }
         break;
+    case WM_KEYDOWN:
+        {
+            bool moved = false;
+            switch (wParam)
+            {
+            case 0x57: // W
+                moved = MoveUp();
+                break;
+            case 0x41: // A
+                moved = MoveLeft();
+                break;
+            case 0x53: // S
+                moved = MoveDown();
+                break;
+            case 0x44: // D
+                moved = MoveRight();
+                break;
+            }
+            if(moved)
+                Spawn2();
+            return DefWindowProcW(hWnd, message, wParam, lParam);
+        }
+        break;
     case WM_MOVE:
-    {
-        //RECT Rect;
-        //GetWindowRect(hWnd, &Rect);
-        //MapWindowPoints(HWND_DESKTOP, GetParent(hWnd), (LPPOINT)&Rect, 2);
-        RECT rc, rc_main, rc_clone;
-        SystemParametersInfoW(SPI_GETWORKAREA, 0, &rc, 0);
-        int centerX = (rc.left + rc.right + 1) / 2;
-        int centerY = (rc.top + rc.bottom + 1) / 2;
-        int xPos = (int)(short)LOWORD(lParam);   // horizontal position 
-        int yPos = (int)(short)HIWORD(lParam);   // vertical position 
-        if (hWnd == g_hWnd)
-            MoveWindow(g_hWnd_Clone, 2 * centerX - xPos - rcSize.right - rcSize.left, 2 * centerY - yPos - rcSize.bottom - rcSize.top, rcSize.right - rcSize.left, rcSize.bottom - rcSize.top, FALSE);
-        else if (hWnd == g_hWnd_Clone)
-            MoveWindow(g_hWnd, 2 * centerX - xPos - rcSize.right - rcSize.left, 2 * centerY - yPos - rcSize.bottom - rcSize.top, rcSize.right - rcSize.left, rcSize.bottom - rcSize.top, FALSE);
-        GetWindowRect(g_hWnd, &rc_main);
-        GetWindowRect(g_hWnd_Clone, &rc_clone);
-        //MapWindowPoints(HWND_DESKTOP, GetParent(hWnd), (LPPOINT)&rc_main, 2);
-        //MapWindowPoints(HWND_DESKTOP, GetParent(hWnd), (LPPOINT)&rc_clone, 2);
-        if (IntersectRect(&rc, &rc_main, &rc_clone))
-            SetLayeredWindowAttributes(g_hWnd_Clone, 0, (255 * 50) / 100, LWA_ALPHA);
-        else
-            SetLayeredWindowAttributes(g_hWnd_Clone, 0, (255 * 100) / 100, LWA_ALPHA);
-        //WCHAR main_title[256];
-        //WCHAR clone_title[256];
-        //wsprintf(main_title, L"x: %d\ty: %d", rc_main.left, rc_main.top);
-        //SetWindowTextW(g_hWnd, main_title);
-        //wsprintf(clone_title, L"x: %d\ty: %d", rc_clone.left, rc_clone.top);
-        //SetWindowTextW(g_hWnd_Clone, clone_title);
-    }
-    break;
+        {
+            //RECT Rect;
+            //GetWindowRect(hWnd, &Rect);
+            //MapWindowPoints(HWND_DESKTOP, GetParent(hWnd), (LPPOINT)&Rect, 2);
+            RECT rc, rc_main, rc_clone;
+            SystemParametersInfoW(SPI_GETWORKAREA, 0, &rc, 0);
+            int centerX = (rc.left + rc.right + 1) / 2;
+            int centerY = (rc.top + rc.bottom + 1) / 2;
+            int xPos = (int)(short)LOWORD(lParam);   // horizontal position 
+            int yPos = (int)(short)HIWORD(lParam);   // vertical position 
+            if (hWnd == g_hWnd)
+                MoveWindow(g_hWnd_Clone, 2 * centerX - xPos - rcSize.right - rcSize.left, 2 * centerY - yPos - rcSize.bottom - rcSize.top, rcSize.right - rcSize.left,  rcSize.bottom - rcSize.top, FALSE);
+            else if (hWnd == g_hWnd_Clone)
+                MoveWindow(g_hWnd, 2 * centerX - xPos - rcSize.right - rcSize.left, 2 * centerY - yPos - rcSize.bottom - rcSize.top, rcSize.right - rcSize.left,    rcSize.bottom - rcSize.top, FALSE);
+            GetWindowRect(g_hWnd, &rc_main);
+            GetWindowRect(g_hWnd_Clone, &rc_clone);
+            //MapWindowPoints(HWND_DESKTOP, GetParent(hWnd), (LPPOINT)&rc_main, 2);
+            //MapWindowPoints(HWND_DESKTOP, GetParent(hWnd), (LPPOINT)&rc_clone, 2);
+            if (IntersectRect(&rc, &rc_main, &rc_clone))
+                SetLayeredWindowAttributes(g_hWnd_Clone, 0, (255 * 50) / 100, LWA_ALPHA);
+            else
+                SetLayeredWindowAttributes(g_hWnd_Clone, 0, (255 * 100) / 100, LWA_ALPHA);
+            //WCHAR main_title[256];
+            //WCHAR clone_title[256];
+            //wsprintf(main_title, L"x: %d\ty: %d", rc_main.left, rc_main.top);
+            //SetWindowTextW(g_hWnd, main_title);
+            //wsprintf(clone_title, L"x: %d\ty: %d", rc_clone.left, rc_clone.top);
+            //SetWindowTextW(g_hWnd_Clone, clone_title);
+        }
+        break;
     case WM_DESTROY:
-        DeleteObject(hbrBackground);
-        DeleteObject(hbrBox);
-        DeleteObject(hbrTile2);
-        DeleteObject(hbrTile4);
-        DeleteObject(hbrTile8);
-        DeleteObject(hbrTile16);
-        DeleteObject(hbrTile32);
-        DeleteObject(hbrTile64);
-        DeleteObject(hbrTile128);
-        DeleteObject(hbrTile256);
-        DeleteObject(hbrTile512);
-        DeleteObject(hbrTile1024);
-        DeleteObject(hbrTile2048);
-        DeleteObject(pen);
-        PostQuitMessage(0);
+        {
+            DeleteObject(hbrBackground);
+            DeleteObject(hbrBox);
+            DeleteObject(hbrTile2);
+            DeleteObject(hbrTile4);
+            DeleteObject(hbrTile8);
+            DeleteObject(hbrTile16);
+            DeleteObject(hbrTile32);
+            DeleteObject(hbrTile64);
+            DeleteObject(hbrTile128);
+            DeleteObject(hbrTile256);
+            DeleteObject(hbrTile512);
+            DeleteObject(hbrTile1024);
+            DeleteObject(hbrTile2048);
+            DeleteObject(pen);
+            PostQuitMessage(0);
+        }
         break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
@@ -325,6 +416,7 @@ void ClearBoard()
 {
     for (int i = 0; i < 16; ++i)
         tiles[i] = 0;
+    RepaintBoard();
 }
 
 //true - no move possible, false - can move
@@ -348,11 +440,198 @@ bool CheckBoard()
     return true;
 }
 
-//void Move()
-//{
-//    if (status == TRUE)
-//        return;
-//}
+bool TileArrAlign(int* arr)
+{
+    bool aligned = false;
+    int j;
+    for (int i = 0; i < 4; ++i)
+    {
+        if (arr[i] != 0)
+            continue;
+        else
+            for (j = i + 1; j < 4; ++j)
+                if (arr[j] != 0)
+                {
+                    arr[i] = arr[j];
+                    arr[j] = 0;
+                    aligned = true;
+                    break;
+                }
+        if (j == 4)
+            break;
+    }
+    return aligned;
+}
+
+bool TileArrMerge(int* arr)
+{
+    bool merged = false;
+    for (int i = 0; i < 4; ++i)
+    {
+        if (arr[i] == 0)
+            return merged;
+        if (arr[i + 1] != 0 && arr[i] == arr[i + 1])
+        {
+            arr[i] *= 2;
+            score += arr[i];
+            arr[i++ + 1] = 0;
+            merged = true;
+        }
+    }
+    return merged;
+}
+
+bool MoveLeft()
+{
+    if (status == TRUE)
+        return false;
+
+    bool moved = false;
+    int row[4];
+    for (int i = 0; i < 4; ++i)
+    {
+        row[3] = tiles[4 * i + 3];
+        row[2] = tiles[4 * i + 2];
+        row[1] = tiles[4 * i + 1];
+        row[0] = tiles[4 * i];
+        if (!moved)
+        {
+            if (moved = TileArrAlign(row))
+                if (TileArrMerge(row))
+                    TileArrAlign(row);
+                else;
+            else if (moved = TileArrMerge(row))
+                TileArrAlign(row);
+        }
+        else
+        {
+            TileArrAlign(row);
+            if (TileArrMerge(row))
+                TileArrAlign(row);
+        }
+        tiles[4 * i + 3] = row[3];
+        tiles[4 * i + 2] = row[2];
+        tiles[4 * i + 1] = row[1];
+        tiles[4 * i] = row[0];
+    }
+    if (moved)
+        RepaintBoard();
+    return moved;
+}
+
+bool MoveRight()
+{
+    if (status == TRUE)
+        return false;
+
+    bool moved = false;
+    int row[4];
+    for (int i = 0; i < 4; ++i)
+    {
+        row[0] = tiles[4 * i + 3];
+        row[1] = tiles[4 * i + 2];
+        row[2] = tiles[4 * i + 1];
+        row[3] = tiles[4 * i];
+        if (!moved)
+        {
+            if (moved = TileArrAlign(row))
+                if (TileArrMerge(row))
+                    TileArrAlign(row);
+                else;
+            else if (moved = TileArrMerge(row))
+                TileArrAlign(row);
+        }
+        else
+        {
+            TileArrAlign(row);
+            if (TileArrMerge(row))
+                TileArrAlign(row);
+        }
+        tiles[4 * i + 3] = row[0];
+        tiles[4 * i + 2] = row[1];
+        tiles[4 * i + 1] = row[2];
+        tiles[4 * i] = row[3];
+    }
+    if (moved)
+        RepaintBoard();
+    return moved;
+}
+
+bool MoveUp()
+{
+    if (status == TRUE)
+        return false;
+
+    bool moved = false;
+    int col[4];
+    for (int i = 0; i < 4; ++i)
+    {
+        col[0] = tiles[i];
+        col[1] = tiles[i + 4];
+        col[2] = tiles[i + 8];
+        col[3] = tiles[i + 12];
+        if (!moved)
+        {
+            if (moved = TileArrAlign(col))
+                if (TileArrMerge(col))
+                    TileArrAlign(col);
+                else;
+            else if (moved = TileArrMerge(col))
+                TileArrAlign(col);
+        }
+        else
+        {
+            TileArrAlign(col);
+            if (TileArrMerge(col))
+                TileArrAlign(col);
+        }
+        tiles[i] = col[0];
+        tiles[i + 4] = col[1];
+        tiles[i + 8] = col[2];
+        tiles[i + 12] = col[3];
+    }
+    if (moved)
+        RepaintBoard();
+    return moved;
+}
+
+bool MoveDown()
+{
+    if (status == TRUE)
+        return false;
+
+    bool moved = false;
+    int col[4];
+    for (int i = 0; i < 4; ++i)
+    {
+        col[3] = tiles[i];
+        col[2] = tiles[i + 4];
+        col[1] = tiles[i + 8];
+        col[0] = tiles[i + 12];
+        if (!moved)
+        {
+            if (TileArrAlign(col))
+                if (TileArrMerge(col))
+                    TileArrAlign(col);
+                else;
+            else if (moved = TileArrMerge(col))
+                TileArrAlign(col);
+        }
+        else
+        {
+            TileArrAlign(col);
+            if (TileArrMerge(col))
+                TileArrAlign(col);
+        }
+        tiles[i] = col[3];
+        tiles[i + 4] = col[2];
+        tiles[i + 8] = col[1];
+        tiles[i + 12] = col[0];
+    }
+    if (moved)
+        RepaintBoard();
+    return moved;
+}
 
 void Spawn2()
 {
@@ -395,7 +674,7 @@ void PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[])
         L" Verdana "); // Facename
     HFONT oldFont = (HFONT)SelectObject(hdc, font);
 
-    HBRUSH hbrOld = (HBRUSH)SelectObject(hdc, hbrTile2);
+    HBRUSH hbrOld = (HBRUSH)SelectObject(hdc, hbr);
     FillRect(hdc, &rc, hbrBackground);
     HPEN oldPen = (HPEN)SelectObject(hdc, pen);
     RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, 15, 15);
@@ -407,5 +686,14 @@ void PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[])
     SelectObject(hdc, oldFont);
     DeleteObject(font);
 
-    ReleaseDC(g_hWnd, hdc);
+    ReleaseDC(GetParent(hWnd), hdc);
+}
+
+void RepaintBoard()
+{
+    RECT rc_main, rc_clone;
+    GetClientRect(g_hWnd, &rc_main);
+    GetClientRect(g_hWnd_Clone, &rc_clone);
+    InvalidateRect(g_hWnd, &rc_main, FALSE);
+    InvalidateRect(g_hWnd_Clone, &rc_clone, FALSE);
 }
