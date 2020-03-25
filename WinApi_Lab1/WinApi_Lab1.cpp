@@ -23,6 +23,10 @@ HWND g_hWnd_Boxes_Clone[16];
 BOOL status;
 static int tiles[16];
 static int score;
+static int goal;
+RECT rcWindow;
+HDC g_hdc, hdcBuffer;
+HBITMAP hbmBuf, hbmOldBuf;
 
 HBRUSH hbrBackground, hbrBox;
 HBRUSH hbrTile2, hbrTile4, hbrTile8, hbrTile16;
@@ -45,6 +49,7 @@ bool                MoveDown();
 void                Spawn2();
 void                PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[]);
 void                RepaintBoard();
+void                CheckMenuGoal(UINT uIDCheckItem);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -86,6 +91,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_WINAPILAB1));
+
+    //double buffer
+    GetClientRect(g_hWnd, &rcWindow);
+
+    g_hdc = GetDC(g_hWnd);
+    hdcBuffer = CreateCompatibleDC(g_hdc);
+    hbmBuf = CreateCompatibleBitmap(hdcBuffer, 290, 360);
+    hbmOldBuf = (HBITMAP)SelectObject(hdcBuffer, hbmBuf);
+    FillRect(hdcBuffer, &rcWindow, (HBRUSH)(COLOR_WINDOW));
+    //ReleaseDC(g_hWnd, hdc);
 
     MSG msg;
 
@@ -252,6 +267,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     Spawn2();
                 }
                 break;
+            case ID_GOAL_8:
+                CheckMenuGoal(ID_GOAL_8);
+                goal = 8;
+            break;
+            case ID_GOAL_16:
+                CheckMenuGoal(ID_GOAL_16);
+                goal = 16;
+            break;
+            case ID_GOAL_64:
+                CheckMenuGoal(ID_GOAL_64);
+                goal = 64;
+            break;
+            case ID_GOAL_2048:
+                CheckMenuGoal(ID_GOAL_2048);
+                goal = 2048;
+            break;
             default:
                 return DefWindowProcW(hWnd, message, wParam, lParam);
             }
@@ -273,61 +304,50 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             WCHAR scoreSTR[64] = L"";
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
-            for (int i = 0; i < 16; ++i)
+            if (hWnd == g_hWnd)
             {
-                switch (tiles[i])
+                for (int i = 0; i < 16; ++i)
                 {
-                case 2:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile2, L"2");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile2, L"2");
-                    break;
-                case 4:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile4, L"4");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile4, L"4");
-                    break;
-                case 8:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile8, L"8");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile8, L"8");
-                    break;
-                case 16:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile16, L"16");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile16, L"16");
-                    break;
-                case 32:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile32, L"32");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile32, L"32");
-                    break;
-                case 64:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile64, L"64");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile64, L"64");
-                    break;
-                case 128:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile128, L"128");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile128, L"128");
-                    break;
-                case 256:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile256, L"256");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile256, L"256");
-                    break;
-                case 512:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile512, L"512");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile512, L"512");
-                    break;
-                case 1024:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile1024, L"1024");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile1024, L"1024");
-                    break;
-                case 2048:
-                    PaintBox(g_hWnd_Boxes[i], hbrTile2048, L"2048");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrTile2048, L"2048");
-                    break;
-                default:
-                    PaintBox(g_hWnd_Boxes[i], hbrBox, L"");
-                    PaintBox(g_hWnd_Boxes_Clone[i], hbrBox, L"");
-                    break;
+                    switch (tiles[i])
+                    {
+                    case 2: PaintBox(g_hWnd_Boxes[i], hbrTile2, L"2"); break;
+                    case 4: PaintBox(g_hWnd_Boxes[i], hbrTile4, L"4"); break;
+                    case 8: PaintBox(g_hWnd_Boxes[i], hbrTile8, L"8"); break;
+                    case 16: PaintBox(g_hWnd_Boxes[i], hbrTile16, L"16"); break;
+                    case 32: PaintBox(g_hWnd_Boxes[i], hbrTile32, L"32"); break;
+                    case 64: PaintBox(g_hWnd_Boxes[i], hbrTile64, L"64"); break;
+                    case 128: PaintBox(g_hWnd_Boxes[i], hbrTile128, L"128"); break;
+                    case 256: PaintBox(g_hWnd_Boxes[i], hbrTile256, L"256"); break;
+                    case 512: PaintBox(g_hWnd_Boxes[i], hbrTile512, L"512"); break;
+                    case 1024: PaintBox(g_hWnd_Boxes[i], hbrTile1024, L"1024"); break;
+                    case 2048: PaintBox(g_hWnd_Boxes[i], hbrTile2048, L"2048"); break;
+                    default: PaintBox(g_hWnd_Boxes[i], hbrBox, L""); break;
+                    }
                 }
                 wsprintfW(scoreSTR, L"%d", score);
                 PaintBox(g_hWnd_ScoreBar, hbrBox, scoreSTR);
+            }
+            else if (hWnd == g_hWnd_Clone)
+            {
+                for(int i = 0; i < 16; ++i)
+                {
+                    switch (tiles[i])
+                    {
+                    case 2: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile2, L"2"); break;
+                    case 4: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile4, L"4"); break;
+                    case 8: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile8, L"8"); break;
+                    case 16: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile16, L"16"); break;
+                    case 32: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile32, L"32"); break;
+                    case 64: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile64, L"64"); break;
+                    case 128: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile128, L"128"); break;
+                    case 256: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile256, L"256"); break;
+                    case 512: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile512, L"512"); break;
+                    case 1024: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile1024, L"1024"); break;
+                    case 2048: PaintBox(g_hWnd_Boxes_Clone[i], hbrTile2048, L"2048"); break;
+                    default: PaintBox(g_hWnd_Boxes_Clone[i], hbrBox, L""); break;
+                    }
+                }
+                wsprintfW(scoreSTR, L"%d", score);
                 PaintBox(g_hWnd_ScoreBar_Clone, hbrBox, scoreSTR);
             }
             EndPaint(hWnd, &ps);
@@ -351,8 +371,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 moved = MoveRight();
                 break;
             }
-            if(moved)
+            if (moved)
+            {
                 Spawn2();
+                RepaintBoard();
+            }
             return DefWindowProcW(hWnd, message, wParam, lParam);
         }
         break;
@@ -403,6 +426,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DeleteObject(hbrTile1024);
             DeleteObject(hbrTile2048);
             DeleteObject(pen);
+            SelectObject(hdcBuffer, hbmOldBuf);
+            ReleaseDC(g_hWnd, g_hdc);
+            DeleteDC(hdcBuffer);
             PostQuitMessage(0);
         }
         break;
@@ -437,6 +463,15 @@ bool CheckBoard()
         //check right
         //else if (i + 1 % 4 != 0 && i + 1 >= 0 && tiles[i + 1] == 0 || tiles[i + 1] == tiles[i]) return false;
     }
+    status = TRUE;
+    //RECT rc, rc_clone;
+    //BLENDFUNCTION bf;
+    //bf.AlphaFormat = AC_SRC_ALPHA;
+    //bf.BlendFlags = 0;
+    //bf.BlendOp = AC_SRC_OVER;
+    //bf.SourceConstantAlpha = 255;
+    //GetClientRect(g_hWnd, &rc);
+    //GetClientRect(g_hWnd_Clone, &rc_clone);
     return true;
 }
 
@@ -514,8 +549,6 @@ bool MoveLeft()
         tiles[4 * i + 1] = row[1];
         tiles[4 * i] = row[0];
     }
-    if (moved)
-        RepaintBoard();
     return moved;
 }
 
@@ -552,8 +585,6 @@ bool MoveRight()
         tiles[4 * i + 1] = row[2];
         tiles[4 * i] = row[3];
     }
-    if (moved)
-        RepaintBoard();
     return moved;
 }
 
@@ -590,8 +621,6 @@ bool MoveUp()
         tiles[i + 8] = col[2];
         tiles[i + 12] = col[3];
     }
-    if (moved)
-        RepaintBoard();
     return moved;
 }
 
@@ -628,8 +657,6 @@ bool MoveDown()
         tiles[i + 8] = col[1];
         tiles[i + 12] = col[0];
     }
-    if (moved)
-        RepaintBoard();
     return moved;
 }
 
@@ -691,9 +718,21 @@ void PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[])
 
 void RepaintBoard()
 {
-    RECT rc_main, rc_clone;
-    GetClientRect(g_hWnd, &rc_main);
-    GetClientRect(g_hWnd_Clone, &rc_clone);
-    InvalidateRect(g_hWnd, &rc_main, FALSE);
-    InvalidateRect(g_hWnd_Clone, &rc_clone, FALSE);
+    SendMessageW(g_hWnd, WM_PAINT, NULL, NULL);
+    SendMessageW(g_hWnd_Clone, WM_PAINT, NULL, NULL);
+}
+
+void CheckMenuGoal(UINT uIDCheckItem)
+{
+    CheckMenuItem(GetMenu(g_hWnd), ID_GOAL_8, MFS_UNCHECKED);
+    CheckMenuItem(GetMenu(g_hWnd_Clone), ID_GOAL_8, MFS_UNCHECKED);
+    CheckMenuItem(GetMenu(g_hWnd), ID_GOAL_16, MFS_UNCHECKED);
+    CheckMenuItem(GetMenu(g_hWnd_Clone), ID_GOAL_16, MFS_UNCHECKED);
+    CheckMenuItem(GetMenu(g_hWnd), ID_GOAL_64, MFS_UNCHECKED);
+    CheckMenuItem(GetMenu(g_hWnd_Clone), ID_GOAL_64, MFS_UNCHECKED);
+    CheckMenuItem(GetMenu(g_hWnd), ID_GOAL_2048, MFS_UNCHECKED);
+    CheckMenuItem(GetMenu(g_hWnd_Clone), ID_GOAL_2048, MFS_UNCHECKED);
+
+    CheckMenuItem(GetMenu(g_hWnd), uIDCheckItem, MFS_CHECKED);
+    CheckMenuItem(GetMenu(g_hWnd_Clone), uIDCheckItem, MFS_CHECKED);
 }
