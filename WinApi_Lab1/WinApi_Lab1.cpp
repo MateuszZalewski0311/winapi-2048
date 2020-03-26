@@ -20,13 +20,10 @@ HWND g_hWnd_Clone;
 HWND g_hWnd_ScoreBar_Clone;
 HWND g_hWnd_Boxes[16];
 HWND g_hWnd_Boxes_Clone[16];
-BOOL status;
+int status = 0;
 static int tiles[16];
 static int score;
 static int goal;
-RECT rcWindow;
-HDC g_hdc, hdcBuffer;
-HBITMAP hbmBuf, hbmOldBuf;
 
 HBRUSH hbrBackground, hbrBox;
 HBRUSH hbrTile2, hbrTile4, hbrTile8, hbrTile16;
@@ -50,6 +47,7 @@ void                Spawn2();
 void                PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[]);
 void                RepaintBoard();
 void                CheckMenuGoal(UINT uIDCheckItem);
+void                PaintStatus(HWND hWnd);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -92,15 +90,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_WINAPILAB1));
 
-    //double buffer
-    GetClientRect(g_hWnd, &rcWindow);
-
-    g_hdc = GetDC(g_hWnd);
-    hdcBuffer = CreateCompatibleDC(g_hdc);
-    hbmBuf = CreateCompatibleBitmap(hdcBuffer, 290, 360);
-    hbmOldBuf = (HBITMAP)SelectObject(hdcBuffer, hbmBuf);
-    FillRect(hdcBuffer, &rcWindow, (HBRUSH)(COLOR_WINDOW));
-    //ReleaseDC(g_hWnd, hdc);
+    score = 0;
+    CheckMenuGoal(ID_GOAL_2048);
+    ClearBoard();
 
     MSG msg;
 
@@ -207,9 +199,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        }
    }
 
-   //ClearBoard();
-   //score = 0;
-
    if (!hWnd)
    {
       return FALSE;
@@ -234,7 +223,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        ShowWindow(g_hWnd_Boxes_Clone[i], nCmdShow);
        UpdateWindow(g_hWnd_Boxes_Clone[i]);
    }
-
+   
    return TRUE;
 }
 
@@ -263,6 +252,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_GAME_NEWGAME:
                 {
                     score = 0;
+                    status = 0;
+                    HDC hdc = GetDC(g_hWnd);
+                    HDC hdc_c = GetDC(g_hWnd_Clone);
+                    SendMessageW(g_hWnd, WM_ERASEBKGND, (WPARAM)hdc, NULL);
+                    SendMessageW(g_hWnd_Clone, WM_ERASEBKGND, (WPARAM)hdc_c, NULL);
                     ClearBoard();
                     Spawn2();
                 }
@@ -329,7 +323,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             else if (hWnd == g_hWnd_Clone)
             {
-                for(int i = 0; i < 16; ++i)
+                for (int i = 0; i < 16; ++i)
                 {
                     switch (tiles[i])
                     {
@@ -350,7 +344,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 wsprintfW(scoreSTR, L"%d", score);
                 PaintBox(g_hWnd_ScoreBar_Clone, hbrBox, scoreSTR);
             }
-            EndPaint(hWnd, &ps);
+            if (status != 0)
+            {
+                PaintStatus(hWnd);
+            }
+            EndPaint(hWnd, &ps);  
         }
         break;
     case WM_KEYDOWN:
@@ -426,9 +424,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DeleteObject(hbrTile1024);
             DeleteObject(hbrTile2048);
             DeleteObject(pen);
-            SelectObject(hdcBuffer, hbmOldBuf);
-            ReleaseDC(g_hWnd, g_hdc);
-            DeleteDC(hdcBuffer);
             PostQuitMessage(0);
         }
         break;
@@ -448,30 +443,25 @@ void ClearBoard()
 //true - no move possible, false - can move
 bool CheckBoard()
 {
-    if (status == TRUE)
+    if (status != 0)
         return true;
+    for (int i = 0; i < 16; ++i)
+        if (tiles[i] == goal)
+        {
+            status = 1;
+            return true;
+        }
     for (int i = 0; i < 16; ++i)
     {
         if (tiles[i] == 0)
             return false; // empty boxes
         //check above
         if (i - 4 >= 0 && tiles[i - 4] == tiles[i]) return false;
-        //check left
-        else if (i - 1 % 4 != 3 && i - 1 >= 0 && tiles[i - 1] == tiles[i]) return false;
-        //check below
-        //else if (i + 4 < 16 && tiles[i + 4] == 0 || tiles[i + 4] == tiles[i]) return false;
-        //check right
-        //else if (i + 1 % 4 != 0 && i + 1 >= 0 && tiles[i + 1] == 0 || tiles[i + 1] == tiles[i]) return false;
+        //check to the left
+        else if ((i - 1) % 4 != 3 && i - 1 >= 0 && tiles[i - 1] == tiles[i]) return false;
     }
-    status = TRUE;
-    //RECT rc, rc_clone;
-    //BLENDFUNCTION bf;
-    //bf.AlphaFormat = AC_SRC_ALPHA;
-    //bf.BlendFlags = 0;
-    //bf.BlendOp = AC_SRC_OVER;
-    //bf.SourceConstantAlpha = 255;
-    //GetClientRect(g_hWnd, &rc);
-    //GetClientRect(g_hWnd_Clone, &rc_clone);
+    RepaintBoard();
+    status = 2;
     return true;
 }
 
@@ -518,7 +508,7 @@ bool TileArrMerge(int* arr)
 
 bool MoveLeft()
 {
-    if (status == TRUE)
+    if (status != 0)
         return false;
 
     bool moved = false;
@@ -554,7 +544,7 @@ bool MoveLeft()
 
 bool MoveRight()
 {
-    if (status == TRUE)
+    if (status != 0)
         return false;
 
     bool moved = false;
@@ -590,7 +580,7 @@ bool MoveRight()
 
 bool MoveUp()
 {
-    if (status == TRUE)
+    if (status != 0)
         return false;
 
     bool moved = false;
@@ -626,7 +616,7 @@ bool MoveUp()
 
 bool MoveDown()
 {
-    if (status == TRUE)
+    if (status != 0)
         return false;
 
     bool moved = false;
@@ -662,7 +652,7 @@ bool MoveDown()
 
 void Spawn2()
 {
-    if (CheckBoard()) //placeholder
+    if (CheckBoard())
         return;
     int i, choice = rand() % 16;
     for (i = 0; tiles[choice] != 0 && i < 1000; ++i)
@@ -673,7 +663,7 @@ void Spawn2()
 
     PaintBox(g_hWnd_Boxes[choice], hbrTile2, L"2");
     PaintBox(g_hWnd_Boxes_Clone[choice], hbrTile2, L"2");
-    if (CheckBoard()) //placeholder
+    if (CheckBoard())
         return;
 }
 
@@ -714,6 +704,73 @@ void PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[])
     DeleteObject(font);
 
     ReleaseDC(GetParent(hWnd), hdc);
+}
+
+void PaintStatus(HWND hWnd)
+{
+    static const WCHAR gameover[] = L"GAME OVER!";
+    static const WCHAR win[] = L"WIN!";
+    RECT rc, rc_clone;
+    BLENDFUNCTION bf;
+    bf.AlphaFormat = 0;
+    bf.BlendFlags = 0;
+    bf.BlendOp = AC_SRC_OVER;
+    bf.SourceConstantAlpha = 127;
+    GetClientRect(hWnd, &rc);
+    HDC hdc = GetDC(hWnd);
+    HFONT font = CreateFont(
+        -MulDiv(32, GetDeviceCaps(hdc, LOGPIXELSY), 72), // Height
+        0, // Width
+        0, // Escapement
+        0, // Orientation
+        FW_BOLD, // Weight
+        false, // Italic
+        FALSE, // Underline
+        0, // StrikeOut
+        EASTEUROPE_CHARSET, // CharSet
+        OUT_DEFAULT_PRECIS, // OutPrecision
+        CLIP_DEFAULT_PRECIS, // ClipPrecision
+        DEFAULT_QUALITY, // Quality
+        DEFAULT_PITCH | FF_SWISS, // PitchAndFamily
+        L" Verdana "); // Facename
+    HFONT oldFont = (HFONT)SelectObject(hdc, font);
+    SetTextColor(hdc, RGB(255, 255, 255));
+    SetBkMode(hdc, TRANSPARENT);
+    if (status == 2)
+    {
+        HDC hdcRed = CreateCompatibleDC(hdc);
+        HBITMAP hbmRed = CreateCompatibleBitmap(hdc, rc.right, rc.bottom);
+        HBITMAP hbmOld = (HBITMAP)SelectObject(hdcRed, hbmRed);
+        HBRUSH hbrRed = CreateSolidBrush(RGB(255, 0, 0));
+        HBRUSH hbrOld = (HBRUSH)SelectObject(hdcRed, hbrRed);
+        FillRect(hdcRed, &rc, hbrRed);
+        AlphaBlend(hdc, rc.left, rc.top, rc.right, rc.bottom, hdcRed, rc.left, rc.top, rc.right, rc.bottom, bf);
+        DrawTextW(hdc, gameover, (int)wcslen(gameover), &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        SelectObject(hdcRed, hbmOld);
+        SelectObject(hdcRed, hbrOld);
+        DeleteObject(hbmRed);
+        DeleteObject(hbrRed);
+        DeleteDC(hdcRed);
+    }
+    else if (status == 1)
+    {
+        HDC hdcGreen = CreateCompatibleDC(hdc);
+        HBITMAP hbmGreen = CreateCompatibleBitmap(hdc, rc.right, rc.bottom);
+        HBITMAP hbmOld = (HBITMAP)SelectObject(hdcGreen, hbmGreen);
+        HBRUSH hbrGreen = CreateSolidBrush(RGB(0, 255, 0));
+        HBRUSH hbrOld = (HBRUSH)SelectObject(hdcGreen, hbrGreen);
+        FillRect(hdcGreen, &rc, hbrGreen);
+        AlphaBlend(hdc, rc.left, rc.top, rc.right, rc.bottom, hdcGreen, rc.left, rc.top, rc.right, rc.bottom, bf);
+        DrawTextW(hdc, win, (int)wcslen(win), &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        SelectObject(hdcGreen, hbmOld);
+        SelectObject(hdcGreen, hbrOld);
+        DeleteObject(hbmGreen);
+        DeleteObject(hbrGreen);
+        DeleteDC(hdcGreen);
+    }
+    SelectObject(hdc, oldFont);
+    DeleteObject(font);
+    ReleaseDC(hWnd, hdc);
 }
 
 void RepaintBoard()
