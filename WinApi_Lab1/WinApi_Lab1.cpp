@@ -22,8 +22,8 @@ HWND g_hWnd_Boxes[16];
 HWND g_hWnd_Boxes_Clone[16];
 int status = 0;
 static int tiles[16];
-static int score;
-static int goal;
+static int score = 0;
+static int goal = 2048;
 
 HBRUSH hbrBackground, hbrBox;
 HBRUSH hbrTile2, hbrTile4, hbrTile8, hbrTile16;
@@ -48,6 +48,8 @@ void                PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[]);
 void                RepaintBoard();
 void                CheckMenuGoal(UINT uIDCheckItem);
 void                PaintStatus(HWND hWnd);
+void                SaveState();
+void                LoadState();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -90,9 +92,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_WINAPILAB1));
 
-    score = 0;
     CheckMenuGoal(ID_GOAL_2048);
     ClearBoard();
+    LoadState();
+    RepaintBoard();
 
     MSG msg;
 
@@ -264,18 +267,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_GOAL_8:
                 CheckMenuGoal(ID_GOAL_8);
                 goal = 8;
+                CheckBoard();
             break;
             case ID_GOAL_16:
                 CheckMenuGoal(ID_GOAL_16);
                 goal = 16;
+                CheckBoard();
             break;
             case ID_GOAL_64:
                 CheckMenuGoal(ID_GOAL_64);
                 goal = 64;
+                CheckBoard();
             break;
             case ID_GOAL_2048:
                 CheckMenuGoal(ID_GOAL_2048);
                 goal = 2048;
+                CheckBoard();
             break;
             default:
                 return DefWindowProcW(hWnd, message, wParam, lParam);
@@ -409,7 +416,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_DESTROY:
-        {
+    {
             DeleteObject(hbrBackground);
             DeleteObject(hbrBox);
             DeleteObject(hbrTile2);
@@ -424,6 +431,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DeleteObject(hbrTile1024);
             DeleteObject(hbrTile2048);
             DeleteObject(pen);
+            SaveState();
             PostQuitMessage(0);
         }
         break;
@@ -445,12 +453,14 @@ bool CheckBoard()
 {
     if (status != 0)
         return true;
+    //check if won
     for (int i = 0; i < 16; ++i)
         if (tiles[i] == goal)
         {
             status = 1;
             return true;
         }
+    //check if lost
     for (int i = 0; i < 16; ++i)
     {
         if (tiles[i] == 0)
@@ -695,6 +705,14 @@ void PaintBox(HWND hWnd, HBRUSH hbr, const WCHAR s[])
     FillRect(hdc, &rc, hbrBackground);
     HPEN oldPen = (HPEN)SelectObject(hdc, pen);
     RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, 15, 15);
+
+    //POINT spawn{ rc.left, rc.top };
+    //MapWindowPoints(hWnd, GetParent(hWnd), &spawn, 1);
+    //InflateRect(&rc, 5, 5);
+    //spawn.x -= 5;
+    //spawn.y -= 5;
+    //MoveWindow(hWnd, spawn.x, spawn.y, rc.right - rc.left, rc.bottom - rc.top, TRUE);
+
     SetTextColor(hdc, RGB(255, 255, 255));
     SetBkMode(hdc, TRANSPARENT);
     DrawTextW(hdc, s, (int)wcslen(s), &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -792,4 +810,120 @@ void CheckMenuGoal(UINT uIDCheckItem)
 
     CheckMenuItem(GetMenu(g_hWnd), uIDCheckItem, MFS_CHECKED);
     CheckMenuItem(GetMenu(g_hWnd_Clone), uIDCheckItem, MFS_CHECKED);
+}
+
+void SaveState()
+{
+    WCHAR strStatus[16];
+    WCHAR strScore[64];
+    WCHAR strGoal[16];
+    WCHAR strBoard[256];
+    wsprintf(strStatus, L"%d", status);
+    wsprintf(strScore, L"%d", score);
+    wsprintf(strGoal, L"%d", goal);
+    wsprintf(strBoard, L"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;", \
+        tiles[0], tiles[1], tiles[2], tiles[3], tiles[4], tiles[5], tiles[6], tiles[7],\
+        tiles[8], tiles[9], tiles[10], tiles[11], tiles[12], tiles[13],tiles[14], tiles[15]);
+    WritePrivateProfileStringW(L"GAME",
+        L"STATUS",
+        strStatus,
+        L".\\2048.ini");
+    WritePrivateProfileStringW(L"GAME",
+        L"SCORE",
+        strScore,
+        L".\\2048.ini");
+    WritePrivateProfileStringW(L"GAME",
+        L"GOAL",
+        strGoal,
+        L".\\2048.ini");
+    WritePrivateProfileStringW(L"GAME",
+        L"BOARD",
+        strBoard,
+        L".\\2048.ini");
+}
+
+void LoadState()
+{
+    //check if file exists
+    DWORD dwAttrib = GetFileAttributesW(L".\\2048.ini");
+    if (dwAttrib != INVALID_FILE_ATTRIBUTES &&
+        !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY))
+        ;
+    else
+        return;
+
+    WCHAR strStatus[16];
+    WCHAR strScore[64];
+    WCHAR strGoal[16];
+    WCHAR strBoard[256];
+    WCHAR strTiles[16][16];
+    //wsprintf(strStatus, L"%d", status);
+    //wsprintf(strScore, L"%d", score);
+    //wsprintf(strGoal, L"%d", goal);
+    //wsprintf(strBoard, L"%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;%d;", \
+        tiles[0], tiles[1], tiles[2], tiles[3], tiles[4], tiles[5], tiles[6], tiles[7], \
+        tiles[8], tiles[9], tiles[10], tiles[11], tiles[12], tiles[13], tiles[14], tiles[15]);
+    GetPrivateProfileStringW(L"GAME",
+        L"STATUS",
+        L"0",
+        strStatus,
+        16,
+        L".\\2048.ini");
+    GetPrivateProfileStringW(L"GAME",
+        L"SCORE",
+        L"0",
+        strScore,
+        64,
+        L".\\2048.ini");
+    GetPrivateProfileStringW(L"GAME",
+        L"GOAL",
+        L"2048",
+        strGoal,
+        16,
+        L".\\2048.ini");
+    GetPrivateProfileStringW(L"GAME",
+        L"Board",
+        L"0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;",
+        strBoard,
+        256,
+        L".\\2048.ini");
+    status = _wtoi(strStatus);
+    score = _wtoi(strScore);
+    goal = _wtoi(strGoal);
+    for (int i = 0, j = 0, k = 0; strBoard[i] != L'\0', j < 16; ++i)
+    {
+        if (strBoard[i] == L';')
+        {
+            strTiles[j++][k] = L'\0';
+            k = 0;
+            continue;
+        }
+        strTiles[j][k++] = strBoard[i];
+    }
+    for (int i = 0; i < 16; ++i)
+        tiles[i] = _wtoi(strTiles[i]);
+    switch (goal)
+    {
+        case 8:
+            CheckMenuGoal(ID_GOAL_8);
+            CheckBoard();
+            break;
+        case 16:
+            CheckMenuGoal(ID_GOAL_16);
+            CheckBoard();
+            break;
+        case 64:
+            CheckMenuGoal(ID_GOAL_64);
+            CheckBoard();
+            break;
+        case 2048:
+            CheckMenuGoal(ID_GOAL_2048);
+            CheckBoard();
+            break;
+        default:
+            CheckMenuGoal(ID_GOAL_2048);
+            goal = 2048;
+            CheckBoard();
+            break;
+    }
 }
